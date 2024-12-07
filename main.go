@@ -173,6 +173,14 @@ func main() {
 
 		setupRoutes(api)
 
+		// そのままGinを利用してルートを追加することもできるが、
+		// このルートはHumaのAPIドキュメントには反映されない
+		engine.GET("/ping", func(ctx *gin.Context) {
+			ctx.JSON(200, gin.H{
+				"message": "pong",
+			})
+		})
+
 		// サーバー起動時の処理をフックに登録
 		hooks.OnStart(func() {
 			engine.Run(fmt.Sprintf("%s:%d", options.Hostname, options.Port))
