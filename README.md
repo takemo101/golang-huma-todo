@@ -14,7 +14,6 @@
 ├── repository
 │   └── todos.go
 └── shared
-    ├── server.go
     └── token.go
 ```
 
