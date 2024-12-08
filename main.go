@@ -71,7 +71,6 @@ func setupRoutes(api huma.API) {
 			{"queryToken": {}},
 		},
 	}, getTodoById)
-
 	// 作成
 	huma.Register(api, huma.Operation{
 		OperationID:   "createTodo",
