@@ -47,20 +47,7 @@ type CreateTodoInput struct {
 // APIのルーティング設定
 func setupRoutes(api huma.API) {
 
-	api.UseMiddleware(
-		func(ctx huma.Context, next func(ctx huma.Context)) {
-
-			token := ctx.Query("token")
-
-			// トークンが一致しない場合は 401 を返す
-			if shared.IsInvalidToken(token) {
-				huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized", fmt.Errorf("Invalid token"))
-				return
-			}
-
-			next(ctx)
-		},
-	)
+	api.UseMiddleware(createTokenAuth(api))
 
 	// 一覧取得
 	huma.Register(api, huma.Operation{
@@ -72,22 +59,7 @@ func setupRoutes(api huma.API) {
 		Security: []map[string][]string{
 			{"queryToken": {}},
 		},
-	}, func(ctx context.Context, input *struct{}) (*TodosOutput, error) {
-		res := &TodosOutput{}
-
-		todos := repository.GetTodos()
-
-		for _, t := range todos {
-			res.Body.Todos = append(res.Body.Todos, TodoBody{
-				ID:        t.ID,
-				Title:     t.Title,
-				Completed: t.Completed,
-			})
-		}
-
-		return res, nil
-	})
-
+	}, getTodos)
 	// 詳細取得
 	huma.Register(api, huma.Operation{
 		OperationID: "getTodo",
@@ -98,24 +70,7 @@ func setupRoutes(api huma.API) {
 		Security: []map[string][]string{
 			{"queryToken": {}},
 		},
-	}, func(ctx context.Context, input *struct {
-		ID string `path:"id" required:"true" doc:"TodoのID"`
-	}) (*TodoOutput, error) {
-		res := &TodoOutput{}
-
-		t, ok := repository.GetTodoById(input.ID)
-		if !ok {
-			return nil, huma.Error404NotFound("Todo not found")
-		}
-
-		res.Body.Todo = TodoBody{
-			ID:        t.ID,
-			Title:     t.Title,
-			Completed: t.Completed,
-		}
-
-		return res, nil
-	})
+	}, getTodoById)
 
 	// 作成
 	huma.Register(api, huma.Operation{
@@ -128,22 +83,73 @@ func setupRoutes(api huma.API) {
 		Security: []map[string][]string{
 			{"queryToken": {}},
 		},
-	}, func(ctx context.Context, input *CreateTodoInput) (*TodoOutput, error) {
-		res := &TodoOutput{}
+	}, createTodo)
+}
 
-		todo := repository.CreateTodo(repository.TodoForCreate{
-			Title:     input.Body.Title,
-			Completed: input.Body.Completed,
-		})
+func createTokenAuth(api huma.API) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(ctx huma.Context)) {
+		token := ctx.Query("token")
 
-		res.Body.Todo = TodoBody{
-			ID:        todo.ID,
-			Title:     todo.Title,
-			Completed: todo.Completed,
+		// トークンが一致しない場合は 401 を返す
+		if shared.IsInvalidToken(token) {
+			huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized", fmt.Errorf("Invalid token"))
+			return
 		}
 
-		return res, nil
+		next(ctx)
+	}
+}
+
+func getTodos(ctx context.Context, input *struct{}) (*TodosOutput, error) {
+	res := &TodosOutput{}
+
+	todos := repository.GetTodos()
+
+	for _, t := range todos {
+		res.Body.Todos = append(res.Body.Todos, TodoBody{
+			ID:        t.ID,
+			Title:     t.Title,
+			Completed: t.Completed,
+		})
+	}
+
+	return res, nil
+}
+
+func getTodoById(ctx context.Context, input *struct {
+	ID string `path:"id" required:"true" doc:"TodoのID"`
+}) (*TodoOutput, error) {
+	res := &TodoOutput{}
+
+	t, ok := repository.GetTodoById(input.ID)
+	if !ok {
+		return nil, huma.Error404NotFound("Todo not found")
+	}
+
+	res.Body.Todo = TodoBody{
+		ID:        t.ID,
+		Title:     t.Title,
+		Completed: t.Completed,
+	}
+
+	return res, nil
+}
+
+func createTodo(ctx context.Context, input *CreateTodoInput) (*TodoOutput, error) {
+	res := &TodoOutput{}
+
+	todo := repository.CreateTodo(repository.TodoForCreate{
+		Title:     input.Body.Title,
+		Completed: input.Body.Completed,
 	})
+
+	res.Body.Todo = TodoBody{
+		ID:        todo.ID,
+		Title:     todo.Title,
+		Completed: todo.Completed,
+	}
+
+	return res, nil
 }
 
 // Options はコマンドライン引数を格納するための構造体
