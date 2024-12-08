@@ -86,6 +86,7 @@ func setupRoutes(api huma.API) {
 }
 
 func createTokenAuth(api huma.API) func(huma.Context, func(huma.Context)) {
+	// ミドルウェアはシンプルな関数で実装できる
 	return func(ctx huma.Context, next func(ctx huma.Context)) {
 		token := ctx.Query("token")
 
@@ -99,6 +100,8 @@ func createTokenAuth(api huma.API) func(huma.Context, func(huma.Context)) {
 	}
 }
 
+// リクエスト入力とレスポンス出力の型を定義することで、
+// 型情報をHumaのAPIドキュメントに反映することができる
 func getTodos(ctx context.Context, input *struct{}) (*TodosOutput, error) {
 	res := &TodosOutput{}
 
