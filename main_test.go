@@ -49,4 +49,28 @@ func TestRoutes(t *testing.T) {
 		assert.Equal(t, data["title"], body.Todo.Title)
 		assert.Equal(t, data["completed"], body.Todo.Completed)
 	})
+
+	t.Run("Todo更新のテスト", func(t *testing.T) {
+		data := map[string]any{
+			"title":     "test",
+			"completed": true,
+		}
+		res := api.Put("/api/v1/todos/first?token="+shared.Token, data)
+
+		assert.Equal(t, 200, res.Code)
+		var body struct {
+			Todo TodoBody `json:"todo"`
+		}
+		// レスポンスの body をパースして Todo を取得
+		json.NewDecoder(res.Body).Decode(&body)
+
+		assert.Equal(t, data["title"], body.Todo.Title)
+		assert.Equal(t, data["completed"], body.Todo.Completed)
+	})
+
+	t.Run("Todo削除のテスト", func(t *testing.T) {
+		res := api.Delete("/api/v1/todos/first?token=" + shared.Token)
+
+		assert.Equal(t, 204, res.Code)
+	})
 }
