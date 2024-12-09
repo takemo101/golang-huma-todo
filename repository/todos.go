@@ -12,7 +12,7 @@ type Todo struct {
 }
 
 // 作成用のTodoモデル
-type TodoForCreate struct {
+type TodoForCreateOrUpdate struct {
 	Title     string `json:"title"`
 	Completed bool   `json:"completed"`
 }
@@ -40,7 +40,7 @@ func GetTodoById(id string) (Todo, bool) {
 }
 
 // Todo を作成
-func CreateTodo(todo TodoForCreate) Todo {
+func CreateTodo(todo TodoForCreateOrUpdate) Todo {
 	created := Todo{
 		ID:        createRandomID(),
 		Title:     todo.Title,
@@ -50,6 +50,31 @@ func CreateTodo(todo TodoForCreate) Todo {
 	todos = append(todos, created)
 
 	return created
+}
+
+// Todo を更新
+func UpdateTodo(id string, todo TodoForCreateOrUpdate) (Todo, bool) {
+	for i, t := range todos {
+		if t.ID == id {
+			todos[i].Title = todo.Title
+			todos[i].Completed = todo.Completed
+			return todos[i], true
+		}
+	}
+
+	return Todo{}, false
+}
+
+// Todo を削除
+func DeleteTodoById(id string) bool {
+	for i, t := range todos {
+		if t.ID == id {
+			todos = append(todos[:i], todos[i+1:]...)
+			return true
+		}
+	}
+
+	return false
 }
 
 // ランダムな文字列IDを生成
