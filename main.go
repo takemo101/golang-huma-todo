@@ -15,7 +15,7 @@ import (
 	_ "github.com/danielgtaylor/huma/v2/formats/cbor"
 )
 
-// TodoスキーマのBodyデータ定義
+// Todo出力のBodyデータ定義
 type TodoBody struct {
 	ID        string `json:"id" example:"1" doc:"TodoのID"`
 	Title     string `json:"title" example:"XXXに連絡する" doc:"Todoのタイトル"`
@@ -36,12 +36,21 @@ type TodosOutput struct {
 	}
 }
 
+// Todo入力のBodyデータ定義
+type TodoInputBody struct {
+	Title     string `json:"title" minLength:"1" maxLength:"100" example:"XXXに連絡する" doc:"Todoのタイトル"`
+	Completed bool   `json:"completed" example:"false" doc:"Todoの完了状態"`
+}
+
 // Todo作成のリクエストデータ定義
 type CreateTodoInput struct {
-	Body struct {
-		Title     string `json:"title" minLength:"1" maxLength:"100" example:"XXXに連絡する" doc:"Todoのタイトル"`
-		Completed bool   `json:"completed" example:"false" doc:"Todoの完了状態"`
-	}
+	Body TodoInputBody
+}
+
+// Todo更新のリクエストデータ定義
+type UpdateTodoInput struct {
+	ID   string `path:"id" required:"true" doc:"TodoのID"`
+	Body TodoInputBody
 }
 
 // APIのルーティング設定
@@ -83,6 +92,29 @@ func setupRoutes(api huma.API) {
 			{"queryToken": {}},
 		},
 	}, createTodo)
+	// 更新
+	huma.Register(api, huma.Operation{
+		OperationID: "updateTodo",
+		Method:      http.MethodPut,
+		Path:        "/api/v1/todos/{id}",
+		Summary:     "Todoを更新",
+		Tags:        []string{"todos"},
+		Security: []map[string][]string{
+			{"queryToken": {}},
+		},
+	}, updateTodo)
+	// 削除
+	huma.Register(api, huma.Operation{
+		OperationID:   "deleteTodo",
+		Method:        http.MethodDelete,
+		Path:          "/api/v1/todos/{id}",
+		Summary:       "Todoを削除",
+		Tags:          []string{"todos"},
+		DefaultStatus: http.StatusNoContent,
+		Security: []map[string][]string{
+			{"queryToken": {}},
+		},
+	}, deleteTodoById)
 }
 
 func createTokenAuth(api huma.API) func(huma.Context, func(huma.Context)) {
@@ -102,7 +134,7 @@ func createTokenAuth(api huma.API) func(huma.Context, func(huma.Context)) {
 
 // リクエスト入力とレスポンス出力の型を定義することで、
 // 型情報をHumaのAPIドキュメントに反映することができる
-func getTodos(ctx context.Context, input *struct{}) (*TodosOutput, error) {
+func getTodos(_ context.Context, _ *struct{}) (*TodosOutput, error) {
 	res := &TodosOutput{}
 
 	todos := repository.GetTodos()
@@ -118,7 +150,7 @@ func getTodos(ctx context.Context, input *struct{}) (*TodosOutput, error) {
 	return res, nil
 }
 
-func getTodoById(ctx context.Context, input *struct {
+func getTodoById(_ context.Context, input *struct {
 	ID string `path:"id" required:"true" doc:"TodoのID"`
 }) (*TodoOutput, error) {
 	res := &TodoOutput{}
@@ -137,10 +169,10 @@ func getTodoById(ctx context.Context, input *struct {
 	return res, nil
 }
 
-func createTodo(ctx context.Context, input *CreateTodoInput) (*TodoOutput, error) {
+func createTodo(_ context.Context, input *CreateTodoInput) (*TodoOutput, error) {
 	res := &TodoOutput{}
 
-	todo := repository.CreateTodo(repository.TodoForCreate{
+	todo := repository.CreateTodo(repository.TodoForCreateOrUpdate{
 		Title:     input.Body.Title,
 		Completed: input.Body.Completed,
 	})
@@ -152,6 +184,36 @@ func createTodo(ctx context.Context, input *CreateTodoInput) (*TodoOutput, error
 	}
 
 	return res, nil
+}
+
+func updateTodo(_ context.Context, input *UpdateTodoInput) (*TodoOutput, error) {
+	res := &TodoOutput{}
+
+	todo, ok := repository.UpdateTodo(input.ID, repository.TodoForCreateOrUpdate{
+		Title:     input.Body.Title,
+		Completed: input.Body.Completed,
+	})
+	if !ok {
+		return nil, huma.Error404NotFound("Todo not found")
+	}
+
+	res.Body.Todo = TodoBody{
+		ID:        todo.ID,
+		Title:     todo.Title,
+		Completed: todo.Completed,
+	}
+
+	return res, nil
+}
+
+func deleteTodoById(_ context.Context, input *struct {
+	ID string `path:"id" required:"true" doc:"TodoのID"`
+}) (*struct{}, error) {
+	if !repository.DeleteTodoById(input.ID) {
+		return nil, huma.Error404NotFound("Todo not found")
+	}
+
+	return nil, nil
 }
 
 // Options はコマンドライン引数を格納するための構造体
